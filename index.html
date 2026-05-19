@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlinkMoney: Interactive Strategy Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Chosen Palette: Warm Neutrals & Deep Teal (Minimalist Harmony) -->
+<!-- Application Structure Plan: A sidebar-navigated dashboard structure was chosen to allow non-linear exploration of the strategic insights. Users (executives/founders) can jump directly to areas of interest (e.g., Competitors vs. Psychology) without losing context. Interactive segment switchers and clickable priority lists prevent cognitive overload while keeping deep details accessible, adhering to a calm, professional aesthetic. -->
+<!-- Visualization & Content Choices: 1. Mental Models -> Goal: Inform -> Viz: Doughnut Chart (Chart.js) -> Justification: Shows proportion of user perception. 2. SIP Break Reasons -> Goal: Compare -> Viz: Bar Chart (Chart.js) -> Justification: Clearest way to rank categorical reasons. 3. Segments -> Goal: Compare/Organize -> Viz: Interactive UI + Radar Chart (Chart.js) -> Justification: Allows drilling down into multi-dimensional user traits without cluttering the screen. 4. Competitors -> Goal: Relationships -> Viz: Scatter Plot (Chart.js) -> Justification: Maps players on two crucial axes (Wealth vs Liquidity). 5. Flywheel -> Goal: Organize/Process -> Viz: Interactive HTML/CSS Process Flow -> Justification: Shows sequential flow and state changes without relying on SVG or external diagramming tools. NO SVG or Mermaid used. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<style>
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #FAFAF9; 
+        color: #1C1917; 
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+    .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        height: 350px;
+        max-height: 400px;
+    }
+    @media (min-width: 768px) {
+        .chart-container { height: 400px; }
+    }
+    .nav-item.active {
+        background-color: #F0FDF4; 
+        color: #0F766E; 
+        border-right: 4px solid #0F766E;
+        font-weight: 600;
+    }
+    .section-content { display: none; animation: fadeIn 0.4s ease-in-out; }
+    .section-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .segment-btn.active {
+        background-color: #0F766E;
+        color: white;
+        border-color: #0F766E;
+    }
+    .priority-card { transition: all 0.2s ease; cursor: pointer; }
+    .priority-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .priority-details { display: none; margin-top: 1rem; font-size: 0.9rem; color: #44403C; border-top: 1px solid #E7E5E4; padding-top: 0.5rem; }
+    .priority-card.expanded .priority-details { display: block; }
+    .priority-card.expanded .toggle-icon { transform: rotate(180deg); }
+    
+    .flow-node { transition: all 0.3s; cursor: pointer; }
+    .flow-node:hover { background-color: #F0FDF4; border-color: #0F766E; }
+    .flow-detail { display: none; }
+    .flow-detail.active { display: block; animation: fadeIn 0.3s; }
+</style>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen">
+
+<aside class="w-full md:w-64 bg-white border-r border-stone-200 md:fixed md:h-screen z-10 flex flex-col shadow-sm">
+    <div class="p-6 border-b border-stone-100">
+        <h1 class="text-2xl font-bold text-stone-900 tracking-tight">Blink<span class="text-teal-700">Money</span></h1>
+        <p class="text-xs text-stone-500 uppercase tracking-widest mt-1">Strategy Console</p>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-4 flex flex-row md:flex-col overflow-x-auto md:overflow-x-hidden">
+        <button class="nav-item active text-left px-6 py-3 text-sm text-stone-600 hover:bg-stone-50 transition-colors whitespace-nowrap md:whitespace-normal" data-target="dashboard">Executive Verdict</button>
+        <button class="nav-item text-left px-6 py-3 text-sm text-stone-600 hover:bg-stone-50 transition-colors whitespace-nowrap md:whitespace-normal" data-target="market">Market Dynamics</button>
+        <button class="nav-item text-left px-6 py-3 text-sm text-stone-600 hover:bg-stone-50 transition-colors whitespace-nowrap md:whitespace-normal" data-target="psychology">Audience Behavior</button>
+        <button class="nav-item text-left px-6 py-3 text-sm text-stone-600 hover:bg-stone-50 transition-colors whitespace-nowrap md:whitespace-normal" data-target="competitors">Competitive Matrix</button>
+        <button class="nav-item text-left px-6 py-3 text-sm text-stone-600 hover:bg-stone-50 transition-colors whitespace-nowrap md:whitespace-normal" data-target="flywheel">Retention Flow</button>
+    </nav>
+</aside>
+
+<main class="flex-1 md:ml-64 p-6 md:p-10 lg:p-12">
+    
+    <section id="dashboard" class="section-content active max-w-5xl">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-stone-900 mb-2">Executive Verdict & Priorities</h2>
+            <p class="text-stone-600 leading-relaxed">This section outlines the brutal realities and strategic imperatives for BlinkMoney. It provides the top-level insights required for immediate execution. Click on any of the strategic priorities below to reveal the operational reasoning.</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-6 mb-8 border-l-4 border-l-teal-700">
+            <h3 class="text-xl font-semibold text-stone-900 mb-3">The Brutal Assessment</h3>
+            <p class="text-stone-700 mb-4">BlinkMoney is a genuinely strong idea because it aligns platform incentives (retaining AUM) with user best interests (maintaining compounding). However, success hinges entirely on frictionless execution.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div class="bg-stone-50 p-4 rounded-lg">
+                    <span class="text-teal-700 font-bold block mb-1">Hardest Operation</span>
+                    <span class="text-sm text-stone-600">Automating CAMS/KFintech lien marking instantly without UI delays.</span>
+                </div>
+                <div class="bg-stone-50 p-4 rounded-lg">
+                    <span class="text-orange-700 font-bold block mb-1">Biggest Risk</span>
+                    <span class="text-sm text-stone-600">Margin calls during downturns. Liquidating portfolios causes permanent churn.</span>
+                </div>
+                <div class="bg-stone-50 p-4 rounded-lg">
+                    <span class="text-teal-700 font-bold block mb-1">The Moat</span>
+                    <span class="text-sm text-stone-600">Behavioral lock-in. Linking core emergency funds to dynamic credit limits switching.</span>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="text-lg font-semibold text-stone-900 mb-4">Top 5 Strategic Priorities</h3>
+        <div class="space-y-3" id="priority-list">
+            <div class="priority-card bg-white p-5 rounded-xl border border-stone-200" onclick="this.classList.toggle('expanded')">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mr-4">1</div>
+                        <h4 class="font-medium text-stone-900">Dominate Salaried Professionals</h4>
+                    </div>
+                    <span class="toggle-icon text-stone-400 transition-transform">&#9660;</span>
+                </div>
+                <div class="priority-details">Target 24-32 year olds in metros. They possess existing SIP discipline but struggle with credit card usage and lifestyle inflation. They are the most viable wedge for initial adoption.</div>
+            </div>
+            
+            <div class="priority-card bg-white p-5 rounded-xl border border-stone-200" onclick="this.classList.toggle('expanded')">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mr-4">2</div>
+                        <h4 class="font-medium text-stone-900">Eradicate the word "Lien"</h4>
+                    </div>
+                    <span class="toggle-icon text-stone-400 transition-transform">&#9660;</span>
+                </div>
+                <div class="priority-details">Replace backend banking jargon with frontend simplicity. Terms like "lien marking" cause friction and distrust. Use intuitive phrasing like "Vault Unlock" or "Power Cash".</div>
+            </div>
+
+            <div class="priority-card bg-white p-5 rounded-xl border border-stone-200" onclick="this.classList.toggle('expanded')">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mr-4">3</div>
+                        <h4 class="font-medium text-stone-900">Leverage Payroll Integrations</h4>
+                    </div>
+                    <span class="toggle-icon text-stone-400 transition-transform">&#9660;</span>
+                </div>
+                <div class="priority-details">Direct B2B2C distribution via HR portals is highly underrated. It ensures SIP consistency, reduces CAC, and builds instant institutional trust among employees.</div>
+            </div>
+
+            <div class="priority-card bg-white p-5 rounded-xl border border-stone-200" onclick="this.classList.toggle('expanded')">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mr-4">4</div>
+                        <h4 class="font-medium text-stone-900">Absolute Fee Transparency</h4>
+                    </div>
+                    <span class="toggle-icon text-stone-400 transition-transform">&#9660;</span>
+                </div>
+                <div class="priority-details">Indian users hate hidden processing fees more than slightly higher interest rates. Show the exact rupee cost upfront before any transaction is confirmed.</div>
+            </div>
+
+            <div class="priority-card bg-white p-5 rounded-xl border border-stone-200" onclick="this.classList.toggle('expanded')">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mr-4">5</div>
+                        <h4 class="font-medium text-stone-900">Avoid "Super App" Bloat</h4>
+                    </div>
+                    <span class="toggle-icon text-stone-400 transition-transform">&#9660;</span>
+                </div>
+                <div class="priority-details">Do not add direct equity stocks, F&O, or insurance products until the core Invest-Borrow loop is flawless and frictionless. Complexity kills early-stage fintechs.</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="market" class="section-content max-w-5xl">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-stone-900 mb-2">Market Dynamics & Positioning</h2>
+            <p class="text-stone-600 leading-relaxed">This section dissects how the market currently perceives the product category. The core challenge is shifting the user's mental model away from traditional, stigma-laden debt. Review the chart to understand current consumer categorization.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 flex flex-col justify-center">
+                <h3 class="text-xl font-semibold text-stone-900 mb-4">The Category Problem</h3>
+                <p class="text-stone-700 mb-4">Industry terminology calls this "Loan Against Mutual Funds" (LAMF). To the user, this phrasing triggers immediate debt anxiety. BlinkMoney is actually building <strong>Asset-Backed Liquidity</strong>.</p>
+                <div class="space-y-4">
+                    <div class="p-4 bg-teal-50 rounded-lg border border-teal-100">
+                        <strong class="text-teal-800 block mb-1">The Goal Model</strong>
+                        <span class="text-sm text-stone-700">"My money is working and compounding, but I can touch it seamlessly if I need it."</span>
+                    </div>
+                    <div class="p-4 bg-stone-50 rounded-lg border border-stone-200">
+                        <strong class="text-stone-800 block mb-1">The Friction Point</strong>
+                        <span class="text-sm text-stone-700">Users do not understand backend mechanics. If the UI feels like a loan application, they will abandon the flow.</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                <h3 class="text-center font-medium text-stone-800 mb-2">Current Consumer Mental Categorization</h3>
+                <p class="text-center text-xs text-stone-500 mb-4">How target users primarily view LAMF products currently.</p>
+                <div class="chart-container">
+                    <canvas id="mentalModelChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="psychology" class="section-content max-w-5xl">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-stone-900 mb-2">Audience Behavior & Segmentation</h2>
+            <p class="text-stone-600 leading-relaxed">Understanding *why* users act is more important than knowing *what* they do. This section explores the psychological triggers behind investment breakage and allows interactive exploration of our core target segments. Use the toggles below the Radar chart to switch segment profiles.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                <h3 class="text-center font-medium text-stone-800 mb-2">The Reality of Broken SIPs</h3>
+                <p class="text-center text-xs text-stone-500 mb-4">While medical emergencies are assumed, lifestyle lump-sum needs dominate premature redemptions.</p>
+                <div class="chart-container">
+                    <canvas id="sipBreakChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 flex flex-col">
+                <h3 class="text-center font-medium text-stone-800 mb-2">Segment Trait Analysis</h3>
+                <p class="text-center text-xs text-stone-500 mb-4">Select a segment below to view their behavioral profile.</p>
+                
+                <div class="flex justify-center space-x-2 mb-4">
+                    <button class="segment-btn active px-3 py-1 text-sm rounded-full border border-stone-300 text-stone-600 transition-colors" data-segment="salaried">Salaried Pro</button>
+                    <button class="segment-btn px-3 py-1 text-sm rounded-full border border-stone-300 text-stone-600 transition-colors hover:bg-stone-100" data-segment="gig">Gig Worker</button>
+                    <button class="segment-btn px-3 py-1 text-sm rounded-full border border-stone-300 text-stone-600 transition-colors hover:bg-stone-100" data-segment="tier2">Tier-2/3</button>
+                </div>
+
+                <div class="chart-container flex-1">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-stone-800 text-stone-50 rounded-xl p-6 shadow-md transition-all duration-300" id="segment-detail-card">
+            <h4 class="text-xl font-bold text-teal-400 mb-4" id="seg-title">Salaried Young Professionals</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <span class="uppercase tracking-wider text-xs text-stone-400 block mb-1">Strongest Pain Point</span>
+                    <p class="text-sm leading-relaxed" id="seg-pain">Cash flow mismatch between payday and mid-month lifestyle expenses.</p>
+                </div>
+                <div>
+                    <span class="uppercase tracking-wider text-xs text-stone-400 block mb-1">Adoption Trigger</span>
+                    <p class="text-sm leading-relaxed" id="seg-trigger">Avoiding massive credit card rollover rates and late fees.</p>
+                </div>
+                <div>
+                    <span class="uppercase tracking-wider text-xs text-stone-400 block mb-1">Winning Messaging</span>
+                    <p class="text-sm font-semibold text-white" id="seg-msg">"Never pause your compounding."</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="competitors" class="section-content max-w-5xl">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-stone-900 mb-2">Competitive Matrix</h2>
+            <p class="text-stone-600 leading-relaxed">The market is fragmented between pure wealth execution and predatory lending. This scatter plot visualizes the strategic positioning of key players. BlinkMoney's opportunity lies in the unserved upper-right quadrant. Hover over or click data points for details.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                <h3 class="text-center font-medium text-stone-800 mb-4">Market Positioning Map</h3>
+                <div class="chart-container">
+                    <canvas id="competitorScatter"></canvas>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-2 space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-stone-200 shadow-sm transition-all hover:border-teal-500 cursor-pointer" onclick="highlightCompetitor(0)">
+                    <h4 class="font-bold text-stone-900 mb-1 flex items-center"><span class="w-3 h-3 rounded-full bg-stone-800 mr-2"></span> Groww / INDmoney</h4>
+                    <p class="text-sm text-stone-600">Own the asset side perfectly, but LAMF flows are clunky. Users must exit the core investing loop to discover credit features.</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-stone-200 shadow-sm transition-all hover:border-orange-500 cursor-pointer" onclick="highlightCompetitor(1)">
+                    <h4 class="font-bold text-stone-900 mb-1 flex items-center"><span class="w-3 h-3 rounded-full bg-orange-600 mr-2"></span> Navi / Moneyview</h4>
+                    <p class="text-sm text-stone-600">Solve immediate liquidity fast, but build zero long-term financial habits. High customer churn and high default risk.</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-stone-200 shadow-sm transition-all hover:border-stone-400 cursor-pointer" onclick="highlightCompetitor(2)">
+                    <h4 class="font-bold text-stone-900 mb-1 flex items-center"><span class="w-3 h-3 rounded-full bg-stone-400 mr-2"></span> Jar / Fi Money</h4>
+                    <p class="text-sm text-stone-600">Excellent at micro-habits and UI, but fail to provide meaningful liquidity limits because AUM per user remains too low.</p>
+                </div>
+                <div class="bg-teal-50 p-5 rounded-xl border border-teal-200 shadow-sm transition-all cursor-pointer" onclick="highlightCompetitor(3)">
+                    <h4 class="font-bold text-teal-800 mb-1 flex items-center"><span class="text-xl mr-2">&#11088;</span> BlinkMoney Wedge</h4>
+                    <p class="text-sm text-teal-700">The intersection. Speed of a digital lender combined with the sensible, wealth-building mechanics of a premium broker.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="flywheel" class="section-content max-w-5xl">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-stone-900 mb-2">The Behavioral Retention Flywheel</h2>
+            <p class="text-stone-600 leading-relaxed">Long-term behavior is driven by trust during moments of financial panic. This interactive process flow demonstrates how BlinkMoney converts an emergency from a churn event into a loyalty-cementing event. Click each step to reveal the psychological driver.</p>
+        </div>
+
+        <div class="bg-white p-8 rounded-xl shadow-sm border border-stone-200">
+            <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 w-full max-w-4xl mx-auto relative">
+                
+                <div class="md:absolute top-1/2 left-0 w-full h-1 bg-stone-100 -z-10 hidden md:block" style="transform: translateY(-50%);"></div>
+
+                <div class="w-full md:w-1/4 flex flex-col items-center flow-node bg-white p-4 rounded-lg border-2 border-stone-200 z-0" onclick="showFlowDetail(1)">
+                    <div class="text-3xl mb-2">&#128176;</div>
+                    <div class="text-sm font-bold text-center text-stone-800">1. Micro SIPs Start</div>
+                </div>
+                
+                <div class="text-stone-300 md:hidden">&#8595;</div>
+
+                <div class="w-full md:w-1/4 flex flex-col items-center flow-node bg-white p-4 rounded-lg border-2 border-stone-200 z-0" onclick="showFlowDetail(2)">
+                    <div class="text-3xl mb-2">&#128200;</div>
+                    <div class="text-sm font-bold text-center text-stone-800">2. Limit Unlocks</div>
+                </div>
+
+                <div class="text-stone-300 md:hidden">&#8595;</div>
+
+                <div class="w-full md:w-1/4 flex flex-col items-center flow-node bg-white p-4 rounded-lg border-2 border-stone-200 z-0" onclick="showFlowDetail(3)">
+                    <div class="text-3xl mb-2">&#9888;&#65039;</div>
+                    <div class="text-sm font-bold text-center text-stone-800">3. Liquidity Event</div>
+                </div>
+
+                <div class="text-stone-300 md:hidden">&#8595;</div>
+
+                <div class="w-full md:w-1/4 flex flex-col items-center flow-node bg-white p-4 rounded-lg border-2 border-stone-200 z-0" onclick="showFlowDetail(4)">
+                    <div class="text-3xl mb-2">&#128275;</div>
+                    <div class="text-sm font-bold text-center text-stone-800">4. Instant Credit</div>
+                </div>
+            </div>
+
+            <div class="mt-10 bg-stone-50 border border-stone-200 rounded-lg p-6 min-h-[120px]">
+                <div id="flow-default" class="flow-detail active text-center text-stone-500 italic mt-4">
+                    Select a step in the process above to understand the behavioral psychology behind it.
+                </div>
+                <div id="flow-1" class="flow-detail">
+                    <h4 class="font-bold text-teal-700 mb-2">Phase 1: Micro SIPs Start</h4>
+                    <p class="text-sm text-stone-700"><strong>Psychology:</strong> Habit formation. The user makes a psychological contract with their future self. The barrier to entry is kept extremely low to ensure initial adoption.</p>
+                </div>
+                <div id="flow-2" class="flow-detail">
+                    <h4 class="font-bold text-teal-700 mb-2">Phase 2: Dynamic Limit Unlocks</h4>
+                    <p class="text-sm text-stone-700"><strong>Psychology:</strong> Gamification and Reward. As the asset base grows, the UI dynamically shows available "Power Cash" increasing. This reinforces the savings behavior without requiring withdrawal.</p>
+                </div>
+                <div id="flow-3" class="flow-detail">
+                    <h4 class="font-bold text-orange-600 mb-2">Phase 3: The Liquidity Event (Emergency)</h4>
+                    <p class="text-sm text-stone-700"><strong>Psychology:</strong> Financial Anxiety. The user faces a cash deficit (medical, lifestyle, job issue). The natural instinct is to break the SIP, inducing guilt and effectively ending their wealth journey.</p>
+                </div>
+                <div id="flow-4" class="flow-detail">
+                    <h4 class="font-bold text-teal-700 mb-2">Phase 4: Instant Credit Deployment</h4>
+                    <p class="text-sm text-stone-700"><strong>Psychology:</strong> Relief and Trust Cementing. Instead of realizing a loss or taking predatory debt, the user accesses their own wealth's power. Compounding continues uninterrupted. Switching costs to another app become insurmountable.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        
+        const navItems = document.querySelectorAll('.nav-item');
+        const sections = document.querySelectorAll('.section-content');
+
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                const targetId = item.getAttribute('data-target');
+                sections.forEach(sec => {
+                    sec.classList.remove('active');
+                    if(sec.id === targetId) {
+                        sec.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        const wrapLabel = (label) => {
+            if (label.length <= 16) return label;
+            const words = label.split(' ');
+            let lines = [];
+            let currentLine = '';
+            words.forEach(word => {
+                if ((currentLine + word).length > 16) {
+                    if (currentLine) lines.push(currentLine.trim());
+                    currentLine = word + ' ';
+                } else {
+                    currentLine += word + ' ';
+                }
+            });
+            if (currentLine) lines.push(currentLine.trim());
+            return lines;
+        };
+
+        const commonTooltipConfig = {
+            callbacks: {
+                title: function(tooltipItems) {
+                    const item = tooltipItems[0];
+                    let label = item.chart.data.labels[item.dataIndex];
+                    if (Array.isArray(label)) {
+                        return label.join(' ');
+                    }
+                    return label;
+                }
+            }
+        };
+
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+        Chart.defaults.color = '#57534E';
+
+        const ctxMental = document.getElementById('mentalModelChart').getContext('2d');
+        new Chart(ctxMental, {
+            type: 'doughnut',
+            data: {
+                labels: [wrapLabel('Smart Savings Vault'), wrapLabel('Emergency Finance Tool'), wrapLabel('BNPL / Credit Alt'), wrapLabel('Wealth Management')],
+                datasets: [{
+                    data: [40, 35, 15, 10],
+                    backgroundColor: ['#0F766E', '#14B8A6', '#F59E0B', '#A8A29E'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } },
+                    tooltip: commonTooltipConfig
+                }
+            }
+        });
+
+        const ctxSip = document.getElementById('sipBreakChart').getContext('2d');
+        new Chart(ctxSip, {
+            type: 'bar',
+            data: {
+                labels: [wrapLabel('Discretionary / Lifestyle'), wrapLabel('Medical Emergency'), wrapLabel('Market Panic'), wrapLabel('Job Loss / Income Drop'), wrapLabel('Auto-pay Failure')],
+                datasets: [{
+                    label: '% of SIPs Broken',
+                    data: [38, 25, 15, 12, 10],
+                    backgroundColor: '#14B8A6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: commonTooltipConfig
+                },
+                scales: {
+                    x: { grid: { color: '#F5F5F4' }, max: 45 },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+
+        const segmentData = {
+            salaried: {
+                data: [9, 9, 6, 7, 8],
+                title: 'Salaried Young Professionals',
+                pain: 'Cash flow mismatch between payday and mid-month lifestyle expenses.',
+                trigger: 'Avoiding massive credit card rollover rates and late fees.',
+                msg: '"Never pause your compounding."'
+            },
+            gig: {
+                data: [3, 8, 2, 9, 4],
+                title: 'Freelancers & Gig Workers',
+                pain: 'High liquidity needs but lack the steady income/asset base for meaningful credit limits.',
+                trigger: 'Smoothing out highly irregular income months.',
+                msg: '"Your income fluctuates. Your investments shouldn\'t."'
+            },
+            tier2: {
+                data: [6, 5, 5, 8, 5],
+                title: 'Tier-2/3 Users',
+                pain: 'Deep distrust of digital credit; strong preference for physical gold loans.',
+                trigger: 'Medical emergencies requiring cash without asking relatives.',
+                msg: '"Your digital gold loan. Safe, private, instant."'
+            }
+        };
+
+        const ctxRadar = document.getElementById('radarChart').getContext('2d');
+        let radarChart = new Chart(ctxRadar, {
+            type: 'radar',
+            data: {
+                labels: [wrapLabel('Income Stability'), wrapLabel('Tech Readiness'), wrapLabel('Asset Base'), wrapLabel('Liquidity Need'), wrapLabel('SIP Discipline')],
+                datasets: [{
+                    label: 'Segment Profile',
+                    data: segmentData.salaried.data,
+                    backgroundColor: 'rgba(15, 118, 110, 0.2)',
+                    borderColor: '#0F766E',
+                    pointBackgroundColor: '#0F766E',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: commonTooltipConfig
+                },
+                scales: {
+                    r: {
+                        angleLines: { color: '#E7E5E4' },
+                        grid: { color: '#E7E5E4' },
+                        pointLabels: { font: { size: 11 } },
+                        ticks: { display: false, min: 0, max: 10 }
+                    }
+                }
+            }
+        });
+
+        const segBtns = document.querySelectorAll('.segment-btn');
+        segBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                segBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.classList.add('hover:bg-stone-100');
+                });
+                const target = e.target;
+                target.classList.add('active');
+                target.classList.remove('hover:bg-stone-100');
+
+                const segKey = target.getAttribute('data-segment');
+                const info = segmentData[segKey];
+
+                radarChart.data.datasets[0].data = info.data;
+                radarChart.update();
+
+                document.getElementById('seg-title').innerText = info.title;
+                document.getElementById('seg-pain').innerText = info.pain;
+                document.getElementById('seg-trigger').innerText = info.trigger;
+                document.getElementById('seg-msg').innerText = info.msg;
+            });
+        });
+
+        const ctxScatter = document.getElementById('competitorScatter').getContext('2d');
+        window.scatterChart = new Chart(ctxScatter, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { label: 'Groww / INDmoney', data: [{ x: 8.5, y: 3 }], backgroundColor: '#292524', pointRadius: 8 },
+                    { label: 'Navi / KreditBee', data: [{ x: 2, y: 8.5 }], backgroundColor: '#EA580C', pointRadius: 8 },
+                    { label: 'Jar / Fi', data: [{ x: 4.5, y: 4.5 }], backgroundColor: '#A8A29E', pointRadius: 8 },
+                    { label: 'BlinkMoney', data: [{ x: 8, y: 8 }], backgroundColor: '#0F766E', pointRadius: 12, pointStyle: 'rectRot' }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) { return context.dataset.label; }
+                        }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Wealth/Execution Focus' }, min: 0, max: 10, grid: { color: '#F5F5F4' } },
+                    y: { title: { display: true, text: 'Liquidity/Credit Focus' }, min: 0, max: 10, grid: { color: '#F5F5F4' } }
+                }
+            }
+        });
+
+        window.highlightCompetitor = function(index) {
+            const chart = window.scatterChart;
+            const meta = chart.getDatasetMeta(index);
+            const originalRadius = chart.data.datasets[index].pointRadius;
+            
+            chart.data.datasets.forEach((ds, i) => { ds.pointRadius = (i === 3) ? 12 : 8; });
+            
+            chart.data.datasets[index].pointRadius = (index === 3) ? 16 : 12;
+            chart.update();
+            
+            setTimeout(() => {
+                chart.data.datasets[index].pointRadius = originalRadius;
+                chart.update();
+            }, 800);
+        };
+
+        window.showFlowDetail = function(step) {
+            document.querySelectorAll('.flow-detail').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.flow-node').forEach(el => el.classList.remove('ring-2', 'ring-teal-500', 'bg-teal-50'));
+            
+            const detailEl = document.getElementById('flow-' + step);
+            if(detailEl) detailEl.classList.add('active');
+            
+            const nodes = document.querySelectorAll('.flow-node');
+            if(nodes[step-1]) nodes[step-1].classList.add('ring-2', 'ring-teal-500', 'bg-teal-50');
+        };
+
+    });
+</script>
+</body>
+</html>
